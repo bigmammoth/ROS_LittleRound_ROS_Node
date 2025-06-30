@@ -3,30 +3,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define ROS_INTERFACE_Q_LEN 16
 #define ROS_INTERFACE_MSG_SIZE 36
 
 enum UDP_MSG_TYPE {
 	UDP_MSG_TYP_HEARTBEAT = 12000,
 	UDP_MSG_TYPE_SET_ROBOT_MOTION,
-    UDP_MSG_TYPE_SPOT_TURN,
-    UDP_MSG_TYPE_MOVE_STRAIGHT
+    UDP_MSG_TYPE_MOTOR_INFO,
+    UDP_MSG_TYPE_SYSTEM_STATUS
 };
 
 /* -------- Received UDP data from ROS ---------- */
 #define MOTOR_TOTAL_NUM	2
-
-typedef struct
-{
-    uint32_t msgType;
-    uint32_t distance;
-} UdpMoveStraight_t;
-
-typedef struct
-{
-    uint32_t msgType;
-    uint32_t degree;
-} UdpSpotTurn_t;
 
 typedef struct {
 	uint32_t msgType;
@@ -41,7 +28,7 @@ typedef struct
 	uint32_t msgTyp;
 	uint32_t runningStatus[MOTOR_TOTAL_NUM];	// 0-Normal 1-Over volatage 2-Over current 3-Over load 4-Hall sensor error 5-Current overshoot 6-Encoder overshoot 7-Speed overshoot 8-Reference volate error
 	float speed[MOTOR_TOTAL_NUM];				// current running speed in 0.1RPM
-	int32_t position[MOTOR_TOTAL_NUM];			// encouder counts
+	double position[MOTOR_TOTAL_NUM];			// encouder counts
 } UdpMotorInfo_t;
 
 // System status
