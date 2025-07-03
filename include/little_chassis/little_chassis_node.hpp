@@ -37,7 +37,6 @@ namespace little_chassis
         using udp = boost::asio::ip::udp;
         boost::asio::io_context io_ctx_;
         udp::socket cmd_sock_;
-        udp::socket recv_sock_;
         udp::endpoint mcu_endpoint_;
         std::array<uint8_t, 128> recv_buf_{};
         udp::endpoint sender_endpoint_;

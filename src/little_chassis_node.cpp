@@ -14,23 +14,20 @@ using little_chassis::LittleChassisNode;
  */
 LittleChassisNode::LittleChassisNode()
     : Node("little_chassis"),
-      cmd_sock_(io_ctx_),
-      recv_sock_(io_ctx_)
+      cmd_sock_(io_ctx_)
 {
     /* Declare & get parameters */
     declare_parameter("wheel_base", 0.30);
     declare_parameter("wheel_diameter", 0.15);
     declare_parameter("mcu_ip", "192.168.55.100");
     declare_parameter("mcu_cmd_port", 12000);
-    declare_parameter("mcu_recv_port", 12000);
 
     std::string mcu_ip;
-    int cmd_port, recv_port;
+    int cmd_port;
     get_parameter("wheel_base", wheel_base_);
     get_parameter("wheel_diameter", wheel_diameter_);
     get_parameter("mcu_ip", mcu_ip);
     get_parameter("mcu_cmd_port", cmd_port);
-    get_parameter("mcu_recv_port", recv_port);
 
     /* ROS interfaces */
     cmd_sub_ = create_subscription<geometry_msgs::msg::Twist>(
@@ -40,13 +37,11 @@ LittleChassisNode::LittleChassisNode()
     right_odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("right_wheel/odom", 10);
 
     /* Boost.Asio sockets */
-    udp::endpoint local_ep(udp::v4(), recv_port);
-    recv_sock_.open(udp::v4());
-    recv_sock_.bind(local_ep);
-
+    RCLCPP_INFO(get_logger(), "Connecting to MCU at %s:%d", mcu_ip.c_str(), cmd_port);
+    
     mcu_endpoint_ = udp::endpoint(boost::asio::ip::make_address(mcu_ip), cmd_port);
     cmd_sock_.open(udp::v4());
-
+    
     startReceive();
 
     /* Heartbeat timer */
@@ -101,7 +96,7 @@ void LittleChassisNode::cmdCallback(const geometry_msgs::msg::Twist::SharedPtr m
  */
 void LittleChassisNode::startReceive()
 {
-    recv_sock_.async_receive_from(
+    cmd_sock_.async_receive_from(
         boost::asio::buffer(recv_buf_), sender_endpoint_,
         std::bind(&LittleChassisNode::handleReceive, this, std::placeholders::_1, std::placeholders::_2));
 }
@@ -125,18 +120,13 @@ void LittleChassisNode::handleReceive(const boost::system::error_code &ec,
 
         switch (type)
         {
-            case UDP_MSG_TYP_HEARTBEAT:
-            {
-                RCLCPP_DEBUG(get_logger(), "heartbeat received");
-                break;
-            }
             case UDP_MSG_TYPE_MOTOR_INFO:
             {
                 if (bytes_recvd >= sizeof(UdpMotorInfo_t))
                 {
                     const auto *m = reinterpret_cast<const UdpMotorInfo_t *>(recv_buf_.data());
-                    RCLCPP_DEBUG(get_logger(), "motor info: speed[0]=%.2f, speed[1]=%.2f",
-                                 m->speed[0], m->speed[1]);
+                    RCLCPP_INFO(get_logger(), "motor info: speed[0]=%.3f, speed[1]=%.3f, position[0]=%.3f, position[1]=%.3f",
+                                 m->speed[0], m->speed[1], m->position[0], m->position[1]);
                     publishWheelOdom(m->position[0] * (wheel_diameter_ * M_PI / 1000000.0),
                                      m->position[1] * (wheel_diameter_ * M_PI / 1000000.0),
                                      now);
@@ -148,8 +138,7 @@ void LittleChassisNode::handleReceive(const boost::system::error_code &ec,
                 if (bytes_recvd >= sizeof(UdpSystemStatus_t))
                 {
                     const auto *s = reinterpret_cast<const UdpSystemStatus_t *>(recv_buf_.data());
-                    RCLCPP_DEBUG(get_logger(), "system status: voltage=%.2f, current    =%.2f, capacity=%.2f%%",
-                                 s->voltage, s->current, s->capacity);
+                    RCLCPP_DEBUG(get_logger(), "system status: voltage=%.2f, current    =%.2f, capacity=%.2f%%", s->voltage, s->current, s->capacity);
                 }
                 break;
             }
