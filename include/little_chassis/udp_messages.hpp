@@ -16,6 +16,10 @@ enum UDP_MSG_TYPE {
 #define MOTOR_TOTAL_NUM	2
 
 typedef struct {
+    uint32_t msgType;
+} UdpHeartbeat_t;
+
+typedef struct {
 	uint32_t msgType;
 	float speed;
     float omega;

@@ -20,7 +20,7 @@ LittleChassisNode::LittleChassisNode()
     /* Declare & get parameters */
     declare_parameter("wheel_base", 0.30);
     declare_parameter("wheel_diameter", 0.15);
-    declare_parameter("mcu_ip", "192.168.1.100");
+    declare_parameter("mcu_ip", "192.168.55.100");
     declare_parameter("mcu_cmd_port", 12000);
     declare_parameter("mcu_recv_port", 12000);
 
