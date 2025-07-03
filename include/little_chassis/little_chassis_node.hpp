@@ -26,6 +26,8 @@ namespace little_chassis
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_sub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr left_odom_pub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr right_odom_pub_;
+        rclcpp::Logger logger_{get_logger()};
+        rclcpp::TimerBase::SharedPtr heartbeat_timer_;
 
         /* Parameters ------------------------------------------*/
         double wheel_base_{0.0};     //!< metres
@@ -43,7 +45,7 @@ namespace little_chassis
         std::atomic<bool> running_{false};
 
         void startReceive();
-        void handleReceive(const boost::system::error_code &ec,
-                           std::size_t bytes_recvd);
+        void handleReceive(const boost::system::error_code &ec, std::size_t bytes_recvd);
+        void heartBeat();
     };
 } // namespace little_chassis

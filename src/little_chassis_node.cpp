@@ -6,7 +6,12 @@
 using namespace std::chrono_literals;
 using little_chassis::LittleChassisNode;
 
-/* -------------------------------- Constructors -------------------------------- */
+/**
+ * @brief Constructor for LittleChassisNode.
+ * 
+ * This function initializes the node, sets up parameters, subscriptions,
+ * publishers, and Boost.Asio sockets for communication with the MCU.
+ */
 LittleChassisNode::LittleChassisNode()
     : Node("little_chassis"),
       cmd_sock_(io_ctx_),
@@ -17,7 +22,7 @@ LittleChassisNode::LittleChassisNode()
     declare_parameter("wheel_diameter", 0.15);
     declare_parameter("mcu_ip", "192.168.1.100");
     declare_parameter("mcu_cmd_port", 12000);
-    declare_parameter("mcu_recv_port", 12001);
+    declare_parameter("mcu_recv_port", 12000);
 
     std::string mcu_ip;
     int cmd_port, recv_port;
@@ -44,12 +49,21 @@ LittleChassisNode::LittleChassisNode()
 
     startReceive();
 
+    /* Heartbeat timer */
+    heartbeat_timer_ = create_wall_timer(100ms, std::bind(&LittleChassisNode::heartBeat, this));
+
     /* Spin io_context in a background thread */
     running_ = true;
     io_thread_ = std::thread([this]
                              { io_ctx_.run(); });
 }
 
+/**
+ * @brief Destructor for LittleChassisNode.
+ * 
+ * This function stops the io_context and joins the io_thread to ensure
+ * proper cleanup of resources.
+ */
 LittleChassisNode::~LittleChassisNode()
 {
     running_ = false;
@@ -58,7 +72,14 @@ LittleChassisNode::~LittleChassisNode()
         io_thread_.join();
 }
 
-/* -------------------------------- ROS Callback -------------------------------- */
+/**
+ * @brief Callback function for receiving Twist messages.
+ * 
+ * This function converts the Twist message into a UDP command packet and sends it
+ * to the MCU to control the robot's motion.
+ * 
+ * @param msg The received Twist message containing linear and angular velocities.
+ */
 void LittleChassisNode::cmdCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
 {
     UdpSetRobotMotion_t udpCommandPacket;
@@ -72,7 +93,12 @@ void LittleChassisNode::cmdCallback(const geometry_msgs::msg::Twist::SharedPtr m
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "send_to error: %s", ec.message().c_str());
 }
 
-/* ----------------------------- Asynchronous Receive --------------------------- */
+/**
+ * @brief Start asynchronous receive operation on the UDP socket.
+ * 
+ * This function sets up the socket to listen for incoming packets and
+ * binds the handler to process received data.
+ */
 void LittleChassisNode::startReceive()
 {
     recv_sock_.async_receive_from(
@@ -80,6 +106,15 @@ void LittleChassisNode::startReceive()
         std::bind(&LittleChassisNode::handleReceive, this, std::placeholders::_1, std::placeholders::_2));
 }
 
+/**
+ * @brief Handle received UDP packets.
+ * 
+ * This function processes the received data based on its type and publishes
+ * relevant information such as motor speed and system status.
+ * 
+ * @param ec The error code indicating the result of the receive operation.
+ * @param bytes_recvd The number of bytes received in the packet.
+ */
 void LittleChassisNode::handleReceive(const boost::system::error_code &ec,
                                       std::size_t bytes_recvd)
 {
@@ -132,7 +167,13 @@ void LittleChassisNode::handleReceive(const boost::system::error_code &ec,
         startReceive(); // re‑arm
 }
 
-/* -------------------------------- Helper -------------------------------- */
+/**
+ * @brief Publish wheel odometry messages for left and right wheels.
+ * 
+ * @param left_dist Distance traveled by the left wheel in metres.
+ * @param right_dist Distance traveled by the right wheel in metres.
+ * @param stamp Timestamp for the odometry messages.
+ */
 void LittleChassisNode::publishWheelOdom(double left_dist,
                                          double right_dist,
                                          const rclcpp::Time &stamp)
@@ -149,4 +190,16 @@ void LittleChassisNode::publishWheelOdom(double left_dist,
 
     left_odom_pub_->publish(make_msg(left_dist, "left_wheel"));
     right_odom_pub_->publish(make_msg(right_dist, "right_wheel"));
+}
+
+/**
+ * @brief Send a heartbeat packet to the MCU.
+ */
+void LittleChassisNode::heartBeat()
+{
+    UdpHeartbeat_t heartbeatPacket;
+    heartbeatPacket.msgType = UDP_MSG_TYP_HEARTBEAT;
+    boost::system::error_code ec;
+    cmd_sock_.send_to(boost::asio::buffer(&heartbeatPacket, sizeof(heartbeatPacket)), mcu_endpoint_, 0, ec);
+    if (ec) RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "heartbeat send error: %s", ec.message().c_str());
 }
