@@ -31,7 +31,7 @@ LittleChassisNode::LittleChassisNode()
 
     /* ROS interfaces */
     cmd_sub_ = create_subscription<geometry_msgs::msg::Twist>(
-        "geometry/twist", 10,
+        "cmd_vel", 10,
         std::bind(&LittleChassisNode::cmdCallback, this, std::placeholders::_1));
     left_odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("left_wheel/odom", 10);
     right_odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("right_wheel/odom", 10);
@@ -125,7 +125,7 @@ void LittleChassisNode::handleReceive(const boost::system::error_code &ec,
                 if (bytes_recvd >= sizeof(UdpMotorInfo_t))
                 {
                     const auto *m = reinterpret_cast<const UdpMotorInfo_t *>(recv_buf_.data());
-                    RCLCPP_INFO(get_logger(), "motor info: speed[0]=%.3f, speed[1]=%.3f, position[0]=%.3f, position[1]=%.3f",
+                    RCLCPP_DEBUG(get_logger(), "motor info: speed[0]=%.3f, speed[1]=%.3f, position[0]=%.3f, position[1]=%.3f",
                                  m->speed[0], m->speed[1], m->position[0], m->position[1]);
                     publishWheelOdom(m->position[0] * (wheel_diameter_ * M_PI / 1000000.0),
                                      m->position[1] * (wheel_diameter_ * M_PI / 1000000.0),
